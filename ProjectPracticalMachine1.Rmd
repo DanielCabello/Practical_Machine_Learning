@@ -1,0 +1,147 @@
+
+Practical Machine Learning Project:  
+====================================
+  
+  
+**Objective**
+----------------
+  
+The goal of the project is to build a Model to predict how well individuals do barbell lifts using as input data from accelerometers on the belt, forearm, arm, and dumbbell of six participants. 
+  
+ 
+ 
+**Data**
+---------------
+  
+The Weight Lifting Exercises Dataset for this project come from this source:http://groupware.les.inf.puc-rio.br/har.
+
+The training data for this project are available here: 
+
+  https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here: 
+
+  https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+
+For detailed information see this paper:
+
+Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013
+
+Read more: http://groupware.les.inf.puc-rio.br/har#ixzz3PlcqRRv0
+  
+  
+**Steps**
+------------
+ 
+   
+0. Reading data and creating of two datasets for training and testing model
+
+
+```{r, eval=FALSE}
+pml_Training <- read.csv("pml-training.csv")
+library(caret)
+intrain <- createDataPartition(y=pml_Training$classe, p=0.75, list=FALSE)
+pmlTrain <- pml_Training[intrain,]
+pmlTest <- pml_Training[-intrain,]
+```
+
+
+1. Predictors selection: choose the best set of variables for the fit model
+
+First, it was removed any variable which contained missing values.  
+Second, the descriptive variables that do not influence the final result were discarded: user name,the first three columns which recording time, new_window and num_window.  
+Third, a visual inspection of the variables was performed using boxplots. In general, the predictive power of each variable is weak separately.
+
+```{r, eval=FALSE}
+vChoice <- c(8:11,37:49,60:68,84:86,102,113:124,140,151:159,160)
+pmlTrain_1 <- pmlTrain[,vChoice]
+pmlTest_1 <- pmlTest[,vChoice]
+```
+
+Examples of boxplots to see the data range of each variable associated with each
+class (A,B,C,D,E)
+
+```{r, echo=FALSE}
+par(mfrow = c(1, 2))
+boxplot(pmlTrain[,9]~classe,data=pmlTrain, ylab= "roll_belt")
+boxplot(pmlTrain[,10]~classe,data=pmlTrain, ylab= "pitch_belt")
+par(mfrow = c(1, 1))
+```
+
+
+2. Model Selection and Cross validation
+
+ The model was fitted with a gradient boosted machine (gbm) using the selected predictors and a K-fold cross-validation without repetition. The 'gbm' method is adecuated because the predictors are weak and this method allows taking these variables, and average them together with weights, in order to get a stronger predictor.
+
+```{r, eval=FALSE}
+library(gbm)
+fitControl <- trainControl(method = "cv", number = 10,repeats = 10)
+pmlFit <-train(classe ~.,method="gbm",trControl=fitControl,verbose=FALSE,data=pmlTrain_1)
+pmlFit
+```
+
+
+3. Test of model with testing set 
+
+The model was tested with testing data set (pmlTest_1)
+
+```{r, eval=FALSE}
+pml_pred <- predict(pmlFit,pmlTest_1)
+confusionMatrix(pmlTest_1$classe,pml_pred)
+```
+
+
+4. Validation of Model with 20 test cases
+
+Finally, the machine learning algorithm was used to predict 20 different test cases. The results were very satisfactory with 20 out of 20 correct. 
+
+```{r, eval=FALSE}
+pmlTest3 <- read.csv("pml-testing.csv")
+pmlTest3 <- pmlTest3[,vChoice]
+pred <- predict(pmlFit,pmlTest3)
+```
+
+The confusion Matrix between observed and predicted data shows an 100% accuracy
+along with a confidence interval betwen 0.83 and 1.  
+For this test the model shows a 100% sensitivity and 100% Specificity. 
+
+
+Confusion Matrix and Statistics
+
+          Reference  
+Prediction A B C D E  
+         A 7 0 0 0 0  
+         B 0 8 0 0 0  
+         C 0 0 1 0 0  
+         D 0 0 0 1 0  
+         E 0 0 0 0 3  
+
+Overall Statistics
+                                     
+               Accuracy : 1          
+                 95% CI : (0.8316, 1)  
+    No Information Rate : 0.4        
+    P-Value [Acc > NIR] : 1.1e-08    
+                                     
+                  Kappa : 1          
+ Mcnemar's Test P-Value : NA         
+
+Statistics by Class:
+
+                     Class: A Class: B Class: C Class: D Class: E  
+Sensitivity              1.00      1.0     1.00     1.00     1.00  
+Specificity              1.00      1.0     1.00     1.00     1.00  
+Pos Pred Value           1.00      1.0     1.00     1.00     1.00  
+Neg Pred Value           1.00      1.0     1.00     1.00     1.00  
+Prevalence               0.35      0.4     0.05     0.05     0.15  
+Detection Rate           0.35      0.4     0.05     0.05     0.15  
+Detection Prevalence     0.35      0.4     0.05     0.05     0.15  
+Balanced Accuracy        1.00      1.0     1.00     1.00     1.00  
+
+```{r, eval=FALSE}
+observed <- c("B","A","B","A","A","E","D","B","A","A","B","C",
+              "B","A","E","E","A","B","B","B")
+matrix <- confusionMatrix(observed,pred)
+```
+
